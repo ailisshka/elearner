@@ -1,7 +1,5 @@
 import React from 'react';
 
-// Представь, что это пути к твоим будущим SVG котятам
-// Для высшего балла используем формат .svg 
 const stages = {
   baby: 'https://img.icons8.com/bubbles/200/kitten.png', 
   student: 'https://img.icons8.com/bubbles/200/cat.png',
@@ -9,7 +7,6 @@ const stages = {
 };
 
 const Character = ({ level }) => {
-  // Логика эволюции (Критерий: Интерактивность) 
   const getStage = () => {
     if (level < 5) return stages.baby;
     if (level < 15) return stages.student;

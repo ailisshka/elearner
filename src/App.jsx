@@ -1,70 +1,150 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Learn from './pages/Learn'; 
-import catStage1 from './assets/CatStage1.png'; 
+import AboutUs from './pages/AboutUs'; 
+import Dictionary from './pages/Dictionary';
+import Auth from './pages/Auth';
+import Alphabet from './pages/Alphabet';
+import Leaderboard from './pages/Leaderboard';
+import Profile from './pages/Profile';
+import CatStage1 from './components/CatStage1'; 
 
 function App() {
-  // Состояние для работы Навбара
-  const [activeTab, setActiveTab] = useState('learn');
+  const [activeTab, setActiveTab] = useState('aboutus'); 
+  const [isAuth, setIsAuth] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+      setIsAuth(true);
+    }
+  }, []);
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setIsAuth(true);
+    localStorage.setItem('user', JSON.stringify(userData));
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setIsAuth(false);
+    localStorage.removeItem('user');
+  };
+
+  const updateUserData = (updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
+
+  const updateStreak = async () => {
+    if (!user?.id) return;
+    try {
+      const response = await fetch('http://localhost:5000/api/user/complete-lesson', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      const data = await response.json();
+      if (data.success && data.user) {
+        updateUserData(data.user);
+      }
+    } catch (err) {
+      console.error('Ошибка обновления прогресса:', err);
+    }
+  };
+
+  if (!isAuth) {
+    return <Auth onLogin={handleLogin} />;
+  }
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'aboutus': return <AboutUs user={user} />;
+      case 'learn': return <Learn onComplete={updateStreak} />; 
+      case 'alphabet': return <Alphabet />; 
+      case 'dict': return <Dictionary user={user} setUser={updateUserData} />;
+      case 'leaders': return <Leaderboard />;
+      case 'profile': return <Profile user={user} setUser={updateUserData} />;
+      default: return <AboutUs user={user} />;
+    }
+  };
+
+  const menuItems = [
+    { id: 'aboutus', label: 'О ПРОЕКТЕ', icon: '📖' },
+    { id: 'learn', label: 'ОБУЧЕНИЕ', icon: '🏠' },
+    { id: 'alphabet', label: 'БУКВЫ', icon: 'あ' },
+    { id: 'dict', label: 'СЛОВАРЬ', icon: '🔖' },
+    { id: 'leaders', label: 'ЛИДЕРЫ', icon: '🏆' },
+    { id: 'profile', label: 'ПРОФИЛЬ', icon: '👤' },
+  ];
 
   return (
     <div style={styles.layout}>
-      {/* 1. ЛЕВАЯ ПАНЕЛЬ (Навбар) */}
+      {/* СЛЕВА: НАВИГАЦИЯ */}
       <nav style={styles.sidebar}>
-        <div style={styles.logo}>ENGLISH<span style={{color: '#3B82F6'}}>LEARNER</span></div>
+        <div style={styles.logo}>
+          <span style={{color: '#58CC02'}}>ENGLISH</span><br/>
+          <span style={{color: '#1CB0F6'}}>LEARNER</span>
+        </div>
+        
         <div style={styles.menuGroup}>
-          <button 
-            onClick={() => setActiveTab('learn')} 
-            style={activeTab === 'learn' ? styles.activeBtn : styles.menuButton}
-          >
-            📖 Обучение
-          </button>
-          <button 
-            onClick={() => setActiveTab('dict')} 
-            style={activeTab === 'dict' ? styles.activeBtn : styles.menuButton}
-          >
-            🔖 Словарь
-          </button>
-          <button 
-            onClick={() => setActiveTab('tasks')} 
-            style={activeTab === 'tasks' ? styles.activeBtn : styles.menuButton}
-          >
-            🎯 Задания
-          </button>
-          <button 
-            onClick={() => setActiveTab('profile')} 
-            style={activeTab === 'profile' ? styles.activeBtn : styles.menuButton}
-          >
-            👤 Профиль
+          {menuItems.map((item) => (
+            <button 
+              key={item.id}
+              onClick={() => setActiveTab(item.id)} 
+              style={activeTab === item.id ? styles.activeBtn : styles.menuButton}
+            >
+              <span style={styles.menuIcon}>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+          
+          <button onClick={handleLogout} style={styles.logoutBtn}>
+            <span style={styles.menuIcon}>🚪</span> ВЫЙТИ
           </button>
         </div>
       </nav>
 
-      {/* 2. ЦЕНТРАЛЬНАЯ ЧАСТЬ */}
+      {/* ЦЕНТР: КОНТЕНТ */}
       <main style={styles.main}>
-        <header style={styles.header}>
-          <h2>{activeTab === 'learn' ? 'Обучение' : activeTab === 'dict' ? 'Словарь' : activeTab === 'tasks' ? 'Задания' : 'Профиль'}</h2>
-          <div style={styles.topStats}>
-            <span title="Твой страйк!">🔥 5 дней</span>
-            {/* Гемы убраны */}
-          </div>
-        </header>
-        
         <section style={styles.contentArea}>
-          {activeTab === 'learn' ? <Learn /> : <div style={{padding: '40px', textAlign: 'center', color: '#6B7280'}}>Раздел "{activeTab}" в разработке...</div>}
+          {renderContent()}
         </section>
       </main>
 
-      {/* 3. ПРАВАЯ ПАНЕЛЬ (Котёнок) */}
+      {/* СПРАВА: ПАНЕЛЬ ПРОГРЕССА */}
       <aside style={styles.rightPanel}>
         <div style={styles.characterCard}>
-          <div style={styles.imgWrapper}>
-             <img src={catStage1} alt="Спутник" style={styles.catImg} />
+          <div style={styles.imgWrapper}><CatStage1 /></div>
+          <h4 style={styles.charName}>Твой Спутник</h4>
+          <p style={styles.charLevel}>УРОВЕНЬ {Math.floor((user?.streak || 0) / 10) + 1}</p>
+          <div style={styles.levelBar}>
+            <div style={{...styles.levelProgress, width: `${(user?.streak % 10) * 10}%`}}></div>
           </div>
-          <div style={styles.charInfo}>
-            <h4 style={styles.charName}>Твой Спутник</h4>
-            <p style={styles.charLevel}>Уровень: 1</p>
-            <span style={styles.statusBadge}>Новичок 🌱</span>
+          <span style={styles.statusBadge}>НОВИЧОК</span>
+        </div>
+
+        <div style={styles.statsCard}>
+          <div style={styles.statBlock}>
+            <span style={styles.statNumber}>{user?.streak || 0}</span>
+            <span style={styles.statLabel}>ДНЕЙ ПОДРЯД</span>
           </div>
+          <div style={styles.statBlock}>
+            <span style={styles.statNumber}>{user?.lessonsCompleted || 0}</span>
+            <span style={styles.statLabel}>УРОКОВ</span>
+          </div>
+          <div style={styles.statBlock}>
+            <span style={styles.statNumber}>{user?.favorites?.length || 0}</span>
+            <span style={styles.statLabel}>ИЗБРАННОЕ</span>
+          </div>
+        </div>
+
+        <div style={styles.promoCard}>
+          <h4 style={{margin: '0 0 10px 0', fontSize: '16px', color: '#4b4b4b'}}>Профиль готов</h4>
+          <p style={{fontSize: '12px', color: '#777', marginBottom: '15px'}}>{user?.name}</p>
+          <button style={styles.promoBtn} onClick={() => setActiveTab('profile')}>ИЗМЕНИТЬ</button>
         </div>
       </aside>
     </div>
@@ -72,23 +152,30 @@ function App() {
 }
 
 const styles = {
-  layout: { display: 'flex', minHeight: '100vh', backgroundColor: '#F9FAFB', fontFamily: 'sans-serif' },
-  sidebar: { width: '250px', backgroundColor: '#fff', borderRight: '1px solid #E5E7EB', padding: '30px 20px', position: 'fixed', height: '100vh', top: 0, left: 0 },
-  logo: { fontSize: '22px', fontWeight: '800', marginBottom: '40px' },
-  menuGroup: { display: 'flex', flexDirection: 'column', gap: '8px' },
-  menuButton: { padding: '12px 15px', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer', color: '#6B7280', fontWeight: '600', borderRadius: '12px', transition: '0.2s' },
-  activeBtn: { padding: '12px 15px', border: 'none', backgroundColor: '#EFF6FF', color: '#3B82F6', borderRadius: '12px', textAlign: 'left', fontWeight: '700' },
-  main: { marginLeft: '250px', marginRight: '320px', flex: 1, padding: '40px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
-  topStats: { fontSize: '18px', fontWeight: 'bold', color: '#ef4444' }, // Красный цвет для огня
-  contentArea: { backgroundColor: '#fff', borderRadius: '24px', minHeight: '500px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' },
-  rightPanel: { width: '320px', position: 'fixed', right: 0, top: 0, height: '100vh', padding: '40px 20px' },
-  characterCard: { backgroundColor: '#fff', padding: '30px', borderRadius: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', textAlign: 'center' },
-  catImg: { width: '130px', height: '130px', objectFit: 'contain' },
-  charInfo: { borderTop: '1px solid #F3F4F6', paddingTop: '20px', marginTop: '15px' },
-  charName: { margin: '0 0 5px 0', fontSize: '18px', fontWeight: '700' },
-  charLevel: { color: '#6B7280', margin: '0 0 10px 0' },
-  statusBadge: { padding: '6px 16px', backgroundColor: '#EFF6FF', color: '#1E3A8A', borderRadius: '20px', fontSize: '12px', fontWeight: '700' }
+  layout: { display: 'flex', minHeight: '100vh', backgroundColor: '#FFFFFF', fontFamily: "'Nunito', sans-serif", color: '#4b4b4b' },
+  sidebar: { width: '240px', borderRight: '2px solid #e5e5e5', padding: '30px 16px', position: 'fixed', height: '100vh', backgroundColor: '#FFFFFF' },
+  logo: { fontSize: '22px', fontWeight: '900', marginBottom: '40px', paddingLeft: '20px' },
+  menuGroup: { display: 'flex', flexDirection: 'column', gap: '4px' },
+  menuButton: { display: 'flex', alignItems: 'center', padding: '12px 20px', border: '2px solid transparent', background: 'none', cursor: 'pointer', color: '#777', fontWeight: '700', borderRadius: '12px', fontSize: '15px', textAlign: 'left', transition: 'background 0.2s' },
+  activeBtn: { display: 'flex', alignItems: 'center', padding: '12px 20px', backgroundColor: '#ddf4ff', color: '#1CB0F6', border: '2px solid #84d8ff', borderRadius: '12px', fontWeight: '800' },
+  logoutBtn: { display: 'flex', alignItems: 'center', padding: '12px 20px', border: 'none', background: 'none', cursor: 'pointer', color: '#FF4B4B', fontWeight: '700', borderRadius: '12px', fontSize: '15px', marginTop: '20px' },
+  menuIcon: { marginRight: '15px', fontSize: '20px' },
+  main: { marginLeft: '240px', marginRight: '350px', flex: 1, padding: '40px' },
+  contentArea: { maxWidth: '1000px', margin: '0 auto' },
+  rightPanel: { width: '350px', position: 'fixed', right: 0, top: 0, height: '100vh', padding: '30px 24px', borderLeft: '2px solid #e5e5e5', display: 'flex', flexDirection: 'column', gap: '15px', backgroundColor: '#FFFFFF' },
+  characterCard: { padding: '25px', borderRadius: '20px', border: '2px solid #e5e5e5', textAlign: 'center', backgroundColor: '#fff' },
+  imgWrapper: { marginBottom: '10px' },
+  charName: { fontSize: '18px', fontWeight: '800', margin: '10px 0 5px', color: '#4b4b4b' },
+  charLevel: { color: '#afb4bd', fontSize: '12px', fontWeight: '800' },
+  levelBar: { width: '100%', height: '12px', backgroundColor: '#e5e5e5', borderRadius: '10px', margin: '12px 0' },
+  levelProgress: { height: '100%', backgroundColor: '#58CC02', borderRadius: '10px', transition: 'width 0.3s ease' },
+  statusBadge: { display: 'inline-block', padding: '8px 20px', backgroundColor: '#58CC02', color: '#fff', borderRadius: '12px', fontSize: '12px', fontWeight: '900', boxShadow: '0 4px 0 #46A302' },
+  statsCard: { padding: '20px', borderRadius: '20px', border: '2px solid #e5e5e5', backgroundColor: '#fff', display: 'grid', gap: '12px' },
+  statBlock: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  statNumber: { fontSize: '22px', fontWeight: '900', color: '#3C3C3C' },
+  statLabel: { fontSize: '12px', color: '#afb4bd', fontWeight: '800' },
+  promoCard: { padding: '20px', borderRadius: '20px', border: '2px solid #e5e5e5', backgroundColor: '#fff' },
+  promoBtn: { width: '100%', marginTop: '10px', padding: '10px', borderRadius: '12px', border: '2px solid #e5e5e5', backgroundColor: '#fff', color: '#1CB0F6', fontWeight: '800', cursor: 'pointer', boxShadow: '0 2px 0 #e5e5e5' }
 };
 
 export default App;

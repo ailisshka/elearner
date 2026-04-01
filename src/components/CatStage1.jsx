@@ -4,7 +4,7 @@ import img from '../assets/CatStage1.png'; // Проверь, что расши�
 const CatStage1 = () => (
   <div style={styles.container}>
     <img src={img} alt="Котёнок-новичок" style={styles.img} />
-    <div style={styles.bubble}>Мяу! Начнем учить IT-слова? 🐣</div>
+    <div style={styles.bubble}>Привет! Начнем учить английский? </div>
   </div>
 );
 

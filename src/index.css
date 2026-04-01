@@ -1,20 +1,35 @@
-/* index.css */
-:root {
-  --main-blue: #3B82F6; /* Яркий синий как в макете Rhode */
-  --light-blue: #DBEAFE; /* Очень светлый синий для фона */
-  --dark-blue: #1E3A8A; /* Темный синий для активных пунктов */
-  --bg-color: #F3F4F6; /* Нейтральный фон */
-  --text-primary: #1F2937;
-  --text-secondary: #6B7280;
-}
-
+/* Основной фон всей страницы */
 body {
   margin: 0;
-  font-family: '"Inter", sans-serif', sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-primary);
+  background-color: #131f24; /* Глубокий темно-серый как в Duo */
+  color: #eeeeee;
+  font-family: 'Nunito', sans-serif;
 }
 
-* {
-  box-shadow: none !important; /* Убираем лишние тени для чистоты */
+/* Эффект наведения для навигации в темной теме */
+.duo-nav-button:hover:not(.active) {
+  background-color: #1c2d35; /* Чуть светлее основного фона */
+  color: #ffffff !important;
+  border-color: #37464f;
+}
+
+/* Активная кнопка в меню */
+.duo-nav-button.active {
+  background-color: #1c2d35;
+  border: 2px solid #1cb0f6;
+  color: #1cb0f6 !important;
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #1cb0f6 !important;
+}
+
+/* 3D эффект для зеленой кнопки (сохраняем сочность) */
+button.duo-green-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #46A302 !important;
+}
+
+/* Если у тебя есть боковая панель, добавь это: */
+.sidebar {
+  background-color: #131f24;
+  border-right: 2px solid #37464f;
 }

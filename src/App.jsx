@@ -50,7 +50,7 @@ function App() {
     const userId = user?.id || user?._id;
     if (!userId) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/stats/${userId}`);
+      const response = await fetch(`https://elearner-kxix.onrender.com/api/stats/${userId}`);
       const data = await response.json();
       if (data) {
         updateUserData({

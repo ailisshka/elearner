@@ -4,7 +4,7 @@ const Leaderboard = () => {
   const [leaders, setLeaders] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/users')
+    fetch('https://elearner-kxix.onrender.com/api/users')
       .then(res => res.json())
       .then(data => setLeaders(data))
       .catch(err => console.error('Ошибка загрузки лидеров:', err));

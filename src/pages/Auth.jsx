@@ -30,7 +30,7 @@ const Auth = ({ onLogin }) => {
 
     try {
       if (!isLogin) {
-        const response = await fetch('http://127.0.0.1:5000/api/register', {
+        const response = await fetch('https://elearner-kxix.onrender.com/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -52,7 +52,7 @@ const Auth = ({ onLogin }) => {
           alert('Ошибка: ' + (data.error || 'Не удалось зарегистрироваться'));
         }
       } else {
-        const response = await fetch('http://127.0.0.1:5000/api/login', {
+        const response = await fetch('https://elearner-kxix.onrender.com/api/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: formData.email, password: formData.password }),
@@ -80,7 +80,7 @@ const Auth = ({ onLogin }) => {
     setInfoMessage('');
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/verify-email', {
+      const response = await fetch('https://elearner-kxix.onrender.com/api/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: pendingEmail, code: verificationCode }),
@@ -106,7 +106,7 @@ const Auth = ({ onLogin }) => {
     setInfoMessage('');
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/resend-code', {
+      const response = await fetch('https://elearner-kxix.onrender.com/api/resend-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: pendingEmail }),

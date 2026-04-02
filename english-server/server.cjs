@@ -1,5 +1,4 @@
 const express = require('express');
-const statsRouter = require('./routes/Stats.cjs');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -7,312 +6,239 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const User = require('./models/User.cjs');
+const statsRouter = require('./routes/Stats.cjs');
+
 const app = express();
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
 app.use('/api/stats', statsRouter);
 
-async function createTransporter() {
-  if (process.env.MAIL_HOST && process.env.MAIL_USER && process.env.MAIL_PASS) {
-    return nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: Number(process.env.MAIL_PORT) || 587,
-      secure: process.env.MAIL_SECURE === 'true',
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS
-      }
-    });
-  }
+// MongoDB
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ MongoDB подключена'))
+  .catch((err) => console.error('❌ MongoDB ошибка:', err.message));
 
-  const testAccount = await nodemailer.createTestAccount();
-  return nodemailer.createTransport({
-    host: testAccount.smtp.host,
-    port: testAccount.smtp.port,
-    secure: testAccount.smtp.secure,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass
-    }
-  });
-}
+// Nodemailer — один раз при старте
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
+  },
+});
 
-async function sendVerificationCode(email, code) {
-  const transporter = await createTransporter();
-  const mailOptions = {
-    from: process.env.MAIL_FROM || process.env.MAIL_USER || 'no-reply@example.com',
-    to: email,
-    subject: 'Код подтверждения регистрации',
-    text: `Ваш код подтверждения: ${code}`,
-    html: `<p>Ваш код подтверждения: <strong>${code}</strong></p>`
-  };
-
-  const info = await transporter.sendMail(mailOptions);
-  const previewUrl = nodemailer.getTestMessageUrl ? nodemailer.getTestMessageUrl(info) : null;
-  return { info, previewUrl };
-}
-
-// Подключение к MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ ПОДКЛЮЧЕНО К MONGODB'))
-  .catch(err => console.log('❌ ОШИБКА БАЗЫ:', err.message));
-
-// --- 1. РЕГИСТРАЦИЯ ---
-app.post('/api/register', async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-    
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Заполни все поля!" });
-    }
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: "Этот email уже используется" });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(String(password), salt);
-
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationExpires = new Date(Date.now() + 15 * 60 * 1000);
-
-    const newUser = new User({ 
-      username: name, 
-      email: email, 
-      password: hashedPassword,
-      isVerified: false,
-      verificationCode,
-      verificationExpires,
-      streak: 0,
-      lessonsCompleted: 0,
-      favorites: []
-    });
-
-    await newUser.save();
-    const mailResult = await sendVerificationCode(email, verificationCode);
-
-    console.log(`👤 Новый пользователь: ${email}`);
-    if (mailResult.previewUrl) {
-      console.log('🧪 Email preview:', mailResult.previewUrl);
-    }
-
-    res.status(201).json({ 
-      verificationPending: true,
-      email,
-      message: "Код подтверждения отправлен на почту",
-      debugCode: process.env.MAIL_HOST ? null : verificationCode,
-      previewUrl: mailResult.previewUrl
-    });
-
-  } catch (error) {
-    console.log("❌ Ошибка регистрации:", error.message);
-    res.status(500).json({ error: "Ошибка сервера при регистрации" });
+transporter.verify((err) => {
+  if (err) {
+    console.error('❌ SMTP ошибка:', err.message);
+  } else {
+    console.log('✅ SMTP готов:', process.env.MAIL_USER);
   }
 });
 
+async function sendCode(email, code) {
+  try {
+    await transporter.sendMail({
+      from: `"Учебное приложение" <${process.env.MAIL_USER}>`,
+      to: email,
+      subject: 'Код подтверждения',
+      html: `<h2>Ваш код: <b style="color:#7c5fe6">${code}</b></h2><p>Действителен 15 минут.</p>`,
+    });
+    console.log('📬 Письмо отправлено на', email);
+    return true;
+  } catch (err) {
+    console.error('❌ Письмо не отправлено:', err.message);
+    return false;
+  }
+}
+
+// РЕГИСТРАЦИЯ
+app.post('/api/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password)
+      return res.status(400).json({ error: 'Заполни все поля!' });
+
+    const existing = await User.findOne({ email });
+    if (existing && existing.isVerified)
+      return res.status(400).json({ error: 'Этот email уже используется' });
+
+    const hashed = await bcrypt.hash(String(password), 10);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
+
+    if (existing && !existing.isVerified) {
+      existing.username = name;
+      existing.password = hashed;
+      existing.verificationCode = code;
+      existing.verificationExpires = expires;
+      await existing.save();
+    } else {
+      await User.create({
+        username: name,
+        email,
+        password: hashed,
+        isVerified: false,
+        verificationCode: code,
+        verificationExpires: expires,
+        streak: 0,
+        lessonsCompleted: 0,
+        favorites: [],
+      });
+    }
+
+    const sent = await sendCode(email, code);
+    if (!sent)
+      return res.status(500).json({ error: 'Не удалось отправить письмо. Попробуй позже.' });
+
+    res.status(201).json({ verificationPending: true, email, message: 'Код отправлен на почту' });
+  } catch (err) {
+    console.error('❌ Регистрация:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ПОДТВЕРЖДЕНИЕ EMAIL
 app.post('/api/verify-email', async (req, res) => {
   try {
     const { email, code } = req.body;
-    if (!email || !code) {
-      return res.status(400).json({ error: 'Требуется email и код подтверждения' });
-    }
+
+    if (!email || !code)
+      return res.status(400).json({ error: 'Нужен email и код' });
 
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ error: 'Пользователь не найден' });
-    }
-
-    if (user.isVerified) {
-      return res.status(400).json({ error: 'Email уже подтверждён' });
-    }
-
-    if (user.verificationCode !== code) {
-      return res.status(400).json({ error: 'Неверный код подтверждения' });
-    }
-
-    if (!user.verificationExpires || new Date() > user.verificationExpires) {
-      return res.status(400).json({ error: 'Код подтверждения истёк' });
-    }
+    if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
+    if (user.isVerified) return res.status(400).json({ error: 'Email уже подтверждён' });
+    if (user.verificationCode !== code) return res.status(400).json({ error: 'Неверный код' });
+    if (new Date() > user.verificationExpires) return res.status(400).json({ error: 'Код истёк. Запросите новый.' });
 
     user.isVerified = true;
     user.verificationCode = '';
     user.verificationExpires = null;
     await user.save();
 
-    res.json({
-      user: {
-        id: user._id,
-        name: user.username,
-        email: user.email,
-        streak: user.streak || 0,
-        lessonsCompleted: user.lessonsCompleted || 0,
-        favorites: user.favorites || []
-      }
-    });
-  } catch (error) {
-    console.log('❌ Ошибка подтверждения:', error.message);
-    res.status(500).json({ error: 'Ошибка сервера при подтверждении почты' });
+    console.log('✅ Подтверждён:', email);
+    res.json({ user: { id: user._id, name: user.username, email: user.email, streak: user.streak || 0, lessonsCompleted: user.lessonsCompleted || 0, favorites: user.favorites || [] } });
+  } catch (err) {
+    console.error('❌ Подтверждение:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
+// ПОВТОРНАЯ ОТПРАВКА КОДА
 app.post('/api/resend-code', async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: 'Требуется email' });
-    }
+    if (!email) return res.status(400).json({ error: 'Нужен email' });
 
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ error: 'Пользователь не найден' });
-    }
+    if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
+    if (user.isVerified) return res.status(400).json({ error: 'Email уже подтверждён' });
 
-    if (user.isVerified) {
-      return res.status(400).json({ error: 'Email уже подтверждён' });
-    }
-
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    user.verificationCode = verificationCode;
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    user.verificationCode = code;
     user.verificationExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
-    const mailResult = await sendVerificationCode(email, verificationCode);
-    if (mailResult.previewUrl) {
-      console.log('🧪 Email preview:', mailResult.previewUrl);
-    }
+    const sent = await sendCode(email, code);
+    if (!sent) return res.status(500).json({ error: 'Не удалось отправить письмо' });
 
-    res.json({ message: 'Код отправлен повторно', debugCode: process.env.MAIL_HOST ? null : verificationCode, previewUrl: mailResult.previewUrl });
-  } catch (error) {
-    console.log('❌ Ошибка отправки кода:', error.message);
-    res.status(500).json({ error: 'Ошибка сервера при отправке кода' });
+    res.json({ message: 'Код отправлен повторно' });
+  } catch (err) {
+    console.error('❌ Повтор кода:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// --- 2. ВХОД ---
+// ВХОД
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Введи email и пароль' });
+
     const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ error: 'Пользователь не найден' });
+    if (!user.isVerified) return res.status(403).json({ error: 'Email не подтверждён. Проверь почту.' });
 
-    if (!user) {
-      return res.status(400).json({ error: "Пользователь не найден" });
-    }
+    const ok = await bcrypt.compare(String(password), user.password);
+    if (!ok) return res.status(400).json({ error: 'Неверный пароль' });
 
-    if (!user.isVerified) {
-      return res.status(403).json({ error: "Email не подтверждён. Проверьте почту." });
-    }
-
-    const isMatch = await bcrypt.compare(String(password), user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: "Неверный пароль" });
-    }
-
-    console.log(`🔑 Вход выполнен: ${email}`);
-    res.json({ 
-      user: { 
-        id: user._id, 
-        name: user.username, 
-        email: user.email, 
-        streak: user.streak || 0,
-        lessonsCompleted: user.lessonsCompleted || 0,
-        favorites: user.favorites || []
-      } 
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Ошибка сервера при входе" });
+    console.log('🔑 Вход:', email);
+    res.json({ user: { id: user._id, name: user.username, email: user.email, streak: user.streak || 0, lessonsCompleted: user.lessonsCompleted || 0, favorites: user.favorites || [] } });
+  } catch (err) {
+    console.error('❌ Вход:', err.message);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// --- 3. ТАБЛИЦА ЛИДЕРОВ ---
+// ЛИДЕРБОРД
 app.get('/api/users', async (req, res) => {
   try {
-    const users = await User.find().sort({ streak: -1, lessonsCompleted: -1 }).limit(10);
-    const formattedUsers = users.map(u => ({
-      id: u._id,
-      name: u.username,
-      streak: u.streak || 0,
-      lessonsCompleted: u.lessonsCompleted || 0,
-      favoritesCount: (u.favorites || []).length
-    }));
-    res.json(formattedUsers);
-  } catch (error) {
-    res.status(500).json({ error: "Ошибка при получении списка лидеров" });
+    const users = await User.find({ isVerified: true }).sort({ streak: -1, lessonsCompleted: -1 }).limit(10);
+    res.json(users.map(u => ({ id: u._id, name: u.username, streak: u.streak || 0, lessonsCompleted: u.lessonsCompleted || 0, favoritesCount: (u.favorites || []).length })));
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-// --- 4. ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ---
+// ПРОФИЛЬ
 app.get('/api/user/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
-
-    res.json({ 
-      user: {
-        id: user._id,
-        name: user.username,
-        email: user.email,
-        streak: user.streak || 0,
-        lessonsCompleted: user.lessonsCompleted || 0,
-        favorites: user.favorites || []
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Ошибка при загрузке профиля' });
+    if (!user) return res.status(404).json({ error: 'Не найден' });
+    res.json({ user: { id: user._id, name: user.username, email: user.email, streak: user.streak || 0, lessonsCompleted: user.lessonsCompleted || 0, favorites: user.favorites || [] } });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-const updateProgressHandler = async (req, res) => {
+// ПРОГРЕСС
+const lessonHandler = async (req, res) => {
   try {
     const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'Нужен userId' });
+
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: "Пользователь не найден" });
+    if (!user) return res.status(404).json({ error: 'Не найден' });
 
     user.streak += 1;
     user.lessonsCompleted += 1;
     await user.save();
 
-    res.json({ success: true, user: {
-      id: user._id,
-      name: user.username,
-      email: user.email,
-      streak: user.streak,
-      lessonsCompleted: user.lessonsCompleted,
-      favorites: user.favorites || []
-    }});
-  } catch (error) {
-    res.status(500).json({ error: "Не удалось сохранить прогресс" });
+    res.json({ success: true, user: { id: user._id, name: user.username, email: user.email, streak: user.streak, lessonsCompleted: user.lessonsCompleted, favorites: user.favorites || [] } });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 };
+app.post('/api/update-progress', lessonHandler);
+app.post('/api/user/complete-lesson', lessonHandler);
 
-app.post('/api/update-progress', updateProgressHandler);
-app.post('/api/user/complete-lesson', updateProgressHandler);
-
+// ИЗБРАННОЕ
 app.post('/api/user/favorite', async (req, res) => {
   try {
     const { userId, wordId } = req.body;
+    if (!userId || wordId === undefined) return res.status(400).json({ error: 'Нужен userId и wordId' });
+
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    if (!user) return res.status(404).json({ error: 'Не найден' });
 
     const id = Number(wordId);
-    const favorites = user.favorites || [];
-    if (favorites.includes(id)) {
-      user.favorites = favorites.filter(item => item !== id);
-    } else {
-      user.favorites = [...favorites, id];
-    }
-
+    const favs = user.favorites || [];
+    user.favorites = favs.includes(id) ? favs.filter(f => f !== id) : [...favs, id];
     await user.save();
 
     res.json({ success: true, favorites: user.favorites, favoritesCount: user.favorites.length });
-  } catch (error) {
-    res.status(500).json({ error: 'Не удалось обновить избранное' });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Сервер летит на: http://127.0.0.1:${PORT}`);
+// 404
+app.use((req, res) => {
+  res.status(404).json({ error: `Маршрут ${req.method} ${req.path} не найден` });
 });
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Сервер: http://127.0.0.1:${PORT}`));

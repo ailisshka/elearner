@@ -21,10 +21,17 @@ function App() {
     }
   }, []);
 
+  const normalizeUser = (userData) => {
+    if (!userData) return userData;
+    const id = userData.id || userData._id;
+    return { ...userData, id, _id: userData._id || userData.id };
+  };
+
   const handleLogin = (userData) => {
-    setUser(userData);
+    const normalized = normalizeUser(userData);
+    setUser(normalized);
     setIsAuth(true);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('user', JSON.stringify(normalized));
   };
 
   const handleLogout = () => {
@@ -34,21 +41,24 @@ function App() {
   };
 
   const updateUserData = (updatedUser) => {
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+    const normalized = normalizeUser(updatedUser);
+    setUser(normalized);
+    localStorage.setItem('user', JSON.stringify(normalized));
   };
 
   const updateStreak = async () => {
-    if (!user?.id) return;
+    const userId = user?.id || user?._id;
+    if (!userId) return;
     try {
-      const response = await fetch('http://localhost:5000/api/user/complete-lesson', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id })
-      });
+      const response = await fetch(`http://localhost:5000/api/stats/${userId}`);
       const data = await response.json();
-      if (data.success && data.user) {
-        updateUserData(data.user);
+      if (data) {
+        updateUserData({
+          ...user,
+          streak: data.streak,
+          lessonsCompleted: data.lessonsCompleted,
+          email: data.email || user.email
+        });
       }
     } catch (err) {
       console.error('Ошибка обновления прогресса:', err);
@@ -62,7 +72,7 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'aboutus': return <AboutUs user={user} />;
-      case 'learn': return <Learn onComplete={updateStreak} />; 
+      case 'learn': return <Learn user={user} onStatsUpdate={updateStreak} />; 
       case 'alphabet': return <Alphabet />; 
       case 'dict': return <Dictionary user={user} setUser={updateUserData} />;
       case 'leaders': return <Leaderboard />;

@@ -1,16 +1,64 @@
-# React + Vite
+# EnglishLearner — Курсовой проект
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Полный учебный проект с React/Vite на фронтенде и Node.js/Express + MongoDB на бэкенде.
 
-Currently, two official plugins are available:
+## Что реализовано
+- Аутентификация: регистрация + вход по email и паролю.
+- Хеширование паролей через `bcryptjs`.
+- Сохранение пользователя и прогресса в MongoDB.
+- Отображение статистики: дни подряд, уроки, избранное.
+- SPA-навигация с React Router и поддержкой 404-страницы.
+- Адаптивный интерфейс для мобильных устройств и планшетов.
+- Обработка ошибок запросов и информирование пользователя.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Установка и запуск
+1. Установить зависимости:
+   ```bash
+   npm install
+   ```
+2. Перейти в корневую папку проекта и запустить фронтенд:
+   ```bash
+   npm run dev
+   ```
+3. Запустить бэкенд в папке `english-server`:
+   ```bash
+   cd english-server
+   npm install
+   npm start
+   ```
+4. Открыть приложение по адресу, который выдаст Vite, например `http://127.0.0.1:5173`.
 
-## React Compiler
+## API эндпойнты
+### Регистрация
+- `POST /api/register`
+- Тело: `{ name, email, password }`
+- Ответ: объект `user`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Вход
+- `POST /api/login`
+- Тело: `{ email, password }`
+- Ответ: объект `user`
 
-## Expanding the ESLint configuration
+### Получение статистики
+- `GET /api/stats/:userId`
+- Возвращает прогресс пользователя.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Профиль
+- `GET /api/user/:id`
+- Возвращает данные пользователя.
+
+## Адаптивность и UX
+- Меню и панели перестраиваются на мобильных экранах.
+- На малых экранах все панели располагаются по очереди, без горизонтальной прокрутки.
+- Добавлена 404-страница, которая показывает ошибку и кнопку возврата.
+
+## Технологии
+- React 19, Vite, React Router
+- Node.js, Express, MongoDB, Mongoose
+- bcryptjs
+
+## Как проверять
+- На фронтенде используются роуты через React Router.
+- При неизвестном пути отображается страница 404.
+- Все формы не принимают пустые обязательные поля.
+- В `Auth.jsx` есть проверка ответа сервера и уведомления об ошибках.

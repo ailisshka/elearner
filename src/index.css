@@ -33,3 +33,38 @@ button.duo-green-btn:active {
   background-color: #131f24;
   border-right: 2px solid #37464f;
 }
+
+button:focus {
+  outline: none;
+}
+
+.app-sidebar button,
+.app-sidebar .active,
+.app-sidebar .duo-nav-button {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .app-sidebar,
+  .app-rightpanel {
+    width: 100% !important;
+    position: relative !important;
+    height: auto !important;
+    border: none !important;
+  }
+
+  .app-main {
+    margin: 0 !important;
+    padding: 20px !important;
+  }
+
+  .content-area {
+    max-width: 100% !important;
+  }
+
+  .app-sidebar button,
+  .app-sidebar .active,
+  .app-sidebar .logoutBtn {
+    justify-content: flex-start !important;
+  }
+}

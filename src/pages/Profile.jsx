@@ -117,6 +117,7 @@ const styles = {
     alignItems: 'center', justifyContent: 'center', fontSize: '14px', border: '2px solid #fff' 
   },
   userName: { fontSize: '28px', fontWeight: '900', margin: '0 0 5px 0' },
+  emailText: { color: '#777', fontSize: '14px', marginBottom: '18px', fontWeight: '700' },
   userStatus: { color: '#AFB4BD', fontWeight: '700', fontSize: '14px', marginBottom: '25px' },
   
   statsRow: { display: 'flex', justifyContent: 'center', gap: '30px', marginBottom: '30px' },

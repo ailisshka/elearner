@@ -940,7 +940,7 @@ const Learn = ({ user, onStatsUpdate }) => {
     }
 
     try {
-        const response = await fetch('https://elearner-kxix.onrender.com/api/stats/update', {
+        const response = await fetch('https://elearner-kx1x.onrender.com/api/stats/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

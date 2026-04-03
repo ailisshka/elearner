@@ -25,7 +25,7 @@ const Auth = ({ onLogin }) => {
         ? { email: formData.email, password: formData.password }
         : formData;
 
-      const response = await fetch(`https://elearner-kxix.onrender.com${endpoint}`, {
+      const response = await fetch(`https://elearner-kx1x.onrender.com/api/register${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

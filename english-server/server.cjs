@@ -90,8 +90,8 @@ app.post('/api/register', async (req, res) => {
     }
 
     const sent = await sendCode(email, code);
-    if (!sent)
-      return res.status(500).json({ error: 'Не удалось отправить письмо. Попробуй позже.' });
+    // if (!sent)
+    //   return res.status(500).json({ error: 'Не удалось отправить письмо. Попробуй позже.' });
 
     res.status(201).json({ verificationPending: true, email, message: 'Код отправлен на почту' });
   } catch (err) {

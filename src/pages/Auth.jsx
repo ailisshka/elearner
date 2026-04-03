@@ -5,6 +5,7 @@ const Auth = ({ onLogin }) => {
   const [formData, setFormData] = useState({ email: '', password: '', name: '' });
   const [loading, setLoading] = useState(false);
 
+  // Приводим данные пользователя к единому формату (id/_id)
   const normalizeUser = (userData) => {
     if (!userData) return userData;
     const id = userData.id || userData._id;
@@ -20,12 +21,14 @@ const Auth = ({ onLogin }) => {
     setLoading(true);
 
     try {
+      // Здесь мы выбираем нужный путь
       const endpoint = isLogin ? '/api/login' : '/api/register';
       const body = isLogin 
         ? { email: formData.email, password: formData.password }
         : formData;
 
-      const response = await fetch(`https://elearner-kx1x.onrender.com/api/register${endpoint}`, {
+      // ВНИМАНИЕ: Ссылка теперь правильная, без дублирования путей
+      const response = await fetch(`https://elearner-kx1x.onrender.com${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
